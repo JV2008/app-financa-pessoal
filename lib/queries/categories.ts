@@ -1,4 +1,4 @@
-import { pool } from "@/lib/db";
+import { sql } from "@/lib/db";
 
 export type CategoryRow = {
   id: string;
@@ -9,9 +9,11 @@ export type CategoryRow = {
 };
 
 export async function getCategoriesByUser(userId: string): Promise<CategoryRow[]> {
-  const { rows } = await pool.query(
-    "SELECT id, user_id, name, type, color FROM categories WHERE user_id = $1 OR user_id IS NULL ORDER BY type, name",
-    [userId]
-  );
+  const rows = await sql`
+    SELECT id, user_id, name, type, color
+    FROM category
+    WHERE user_id = ${userId} OR user_id IS NULL
+    ORDER BY type, name
+  `;
   return rows;
 }

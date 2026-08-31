@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { pool } from "@/lib/db";
+import { sql } from "@/lib/db";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -15,12 +15,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const { rows } = await pool.query(
-          "SELECT id, email, password_hash, name FROM users WHERE email = $1",
-          [credentials.email]
-        );
-
-        const user = rows[0];
+        const [user] = await sql`
+          SELECT id, email, password_hash, name
+          FROM "user"
+          WHERE email = ${credentials.email}
+        `;
         if (!user) {
           return null;
         }

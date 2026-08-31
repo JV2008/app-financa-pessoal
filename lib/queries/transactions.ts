@@ -1,4 +1,4 @@
-import { pool } from "@/lib/db";
+import { sql } from "@/lib/db";
 
 export type TransactionRow = {
   id: string;
@@ -15,43 +15,39 @@ export async function getTransactionsByUser(
   userId: string,
   filters?: { accountId?: string; categoryId?: string; startDate?: string; endDate?: string; month?: string }
 ) {
-  let query = `
-    SELECT t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.occurred_at, t.created_at
-    FROM transactions t
-    JOIN accounts a ON a.id = t.account_id
-    WHERE a.user_id = $1
-  `;
-  const params: (string | undefined)[] = [userId];
-  let idx = 2;
+  const conditions: string[] = [`a.user_id = ${userId}`];
+  const values: (string | undefined)[] = [];
 
   if (filters?.accountId) {
-    query += ` AND t.account_id = $${idx}`;
-    params.push(filters.accountId);
-    idx++;
+    conditions.push(`t.account_id = $${values.length + 1}`);
+    values.push(filters.accountId);
   }
   if (filters?.categoryId) {
-    query += ` AND t.category_id = $${idx}`;
-    params.push(filters.categoryId);
-    idx++;
+    conditions.push(`t.category_id = $${values.length + 1}`);
+    values.push(filters.categoryId);
   }
   if (filters?.startDate) {
-    query += ` AND t.occurred_at >= $${idx}`;
-    params.push(filters.startDate);
-    idx++;
+    conditions.push(`t.occurred_at >= $${values.length + 1}`);
+    values.push(filters.startDate);
   }
   if (filters?.endDate) {
-    query += ` AND t.occurred_at <= $${idx}`;
-    params.push(filters.endDate);
-    idx++;
+    conditions.push(`t.occurred_at <= $${values.length + 1}`);
+    values.push(filters.endDate);
   }
   if (filters?.month) {
-    query += ` AND to_char(t.occurred_at, 'YYYY-MM') = $${idx}`;
-    params.push(filters.month);
-    idx++;
+    conditions.push(`to_char(t.occurred_at, 'YYYY-MM') = $${values.length + 1}`);
+    values.push(filters.month);
   }
 
-  query += " ORDER BY t.occurred_at DESC, t.created_at DESC";
-  const { rows } = await pool.query(query, params);
+  const query = `
+    SELECT t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.occurred_at, t.created_at
+    FROM transaction t
+    JOIN account a ON a.id = t.account_id
+    WHERE ${conditions.join(" AND ")}
+    ORDER BY t.occurred_at DESC, t.created_at DESC
+  `;
+
+  const rows = await sql.unsafe(query, values);
   return rows;
 }
 
@@ -59,15 +55,14 @@ export async function createTransaction(
   userId: string,
   data: { accountId: string; categoryId?: string | null; amount: number; type: TransactionRow["type"]; description?: string | null; occurredAt: string }
 ) {
-  const { rows } = await pool.query(
-    `INSERT INTO transactions (account_id, category_id, amount, type, description, occurred_at)
-     SELECT $1, $2, $3, $4, $5, $6
-     FROM accounts a
-     WHERE a.id = $1 AND a.user_id = $7
-     RETURNING id, account_id, category_id, amount, type, description, occurred_at, created_at`,
-    [data.accountId, data.categoryId ?? null, data.amount, data.type, data.description ?? null, data.occurredAt, userId]
-  );
-  return rows[0] ?? null;
+  const [row] = await sql`
+    INSERT INTO transaction (account_id, category_id, amount, type, description, occurred_at)
+    SELECT $1, $2, $3, $4, $5, $6
+    FROM account a
+    WHERE a.id = $1 AND a.user_id = $7
+    RETURNING id, account_id, category_id, amount, type, description, occurred_at, created_at
+  `, [data.accountId, data.categoryId ?? null, data.amount, data.type, data.description ?? null, data.occurredAt, userId];
+  return row ?? null;
 }
 
 export async function updateTransaction(
@@ -108,66 +103,71 @@ export async function updateTransaction(
   if (setClauses.length === 0) return null;
 
   params.push(transactionId, userId);
-  const { rows } = await pool.query(
-    `UPDATE transactions t
-     SET ${setClauses.join(", ")}
-     FROM accounts a
-     WHERE t.id = $${idx}
-       AND a.id = t.account_id
-       AND a.user_id = $${idx + 1}
-     RETURNING t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.occurred_at, t.created_at`,
-    params
-  );
-  return rows[0] ?? null;
+  const [row] = await sql.unsafe(`
+    UPDATE transaction t
+    SET ${setClauses.join(", ")}
+    FROM account a
+    WHERE t.id = $${idx}
+      AND a.id = t.account_id
+      AND a.user_id = $${idx + 1}
+    RETURNING t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.occurred_at, t.created_at
+  `, params);
+  return row ?? null;
 }
 
 export async function deleteTransaction(userId: string, transactionId: string) {
-  const { rowCount } = await pool.query(
-    `DELETE FROM transactions t
-     USING accounts a
-     WHERE t.id = $1
-       AND a.id = t.account_id
-       AND a.user_id = $2`,
-    [transactionId, userId]
-  );
+  const { rowCount } = await sql.unsafe(`
+    DELETE FROM transaction t
+    USING account a
+    WHERE t.id = $1
+      AND a.id = t.account_id
+      AND a.user_id = $2
+  `, [transactionId, userId]);
   return (rowCount ?? 0) > 0;
 }
 
 export async function getMonthlyExpensesByCategory(userId: string, yearMonth: string) {
-  const { rows } = await pool.query(
-    `SELECT c.name, c.color, SUM(t.amount) as total
-     FROM transactions t
-     JOIN accounts a ON a.id = t.account_id
-     JOIN categories c ON c.id = t.category_id
-     WHERE a.user_id = $1
-       AND t.type = 'despesa'
-       AND to_char(t.occurred_at, 'YYYY-MM') = $2
-     GROUP BY c.name, c.color
-     ORDER BY total DESC`,
-    [userId, yearMonth]
-  );
-  return rows;
+  const [row] = await sql`
+    SELECT c.name, c.color, SUM(t.amount) as total
+    FROM transaction t
+    JOIN account a ON a.id = t.account_id
+    JOIN category c ON c.id = t.category_id
+    WHERE a.user_id = ${userId}
+      AND t.type = 'despesa'
+      AND to_char(t.occurred_at, 'YYYY-MM') = ${yearMonth}
+    GROUP BY c.name, c.color
+    ORDER BY total DESC
+  `;
+  return row;
 }
 
 export async function getBalanceSummary(userId: string, accountId?: string) {
-  const params: (string | undefined)[] = [userId];
-  let accountFilter = "";
   if (accountId) {
-    accountFilter = "AND t.account_id = $2";
-    params.push(accountId);
+    const [row] = await sql`
+      SELECT
+        SUM(CASE WHEN t.type = 'receita' THEN t.amount ELSE -t.amount END) as balance,
+        SUM(CASE WHEN t.type = 'receita' THEN t.amount ELSE 0 END) as income,
+        SUM(CASE WHEN t.type = 'despesa' THEN t.amount ELSE 0 END) as expenses
+      FROM transaction t
+      JOIN account a ON a.id = t.account_id
+      WHERE a.user_id = ${userId} AND t.account_id = ${accountId}
+    `;
+    return {
+      balance: Number(row?.balance ?? 0),
+      income: Number(row?.income ?? 0),
+      expenses: Number(row?.expenses ?? 0),
+    };
   }
 
-  const { rows } = await pool.query(
-    `SELECT
-       SUM(CASE WHEN t.type = 'receita' THEN t.amount ELSE -t.amount END) as balance,
-       SUM(CASE WHEN t.type = 'receita' THEN t.amount ELSE 0 END) as income,
-       SUM(CASE WHEN t.type = 'despesa' THEN t.amount ELSE 0 END) as expenses
-     FROM transactions t
-     JOIN accounts a ON a.id = t.account_id
-     WHERE a.user_id = $1 ${accountFilter}`,
-    params
-  );
-  const row = rows[0];
+  const [row] = await sql`
+    SELECT
+      SUM(CASE WHEN t.type = 'receita' THEN t.amount ELSE -t.amount END) as balance,
+      SUM(CASE WHEN t.type = 'receita' THEN t.amount ELSE 0 END) as income,
+      SUM(CASE WHEN t.type = 'despesa' THEN t.amount ELSE 0 END) as expenses
+    FROM transaction t
+    JOIN account a ON a.id = t.account_id
+    WHERE a.user_id = ${userId}
+  `;
   return {
     balance: Number(row?.balance ?? 0),
     income: Number(row?.income ?? 0),

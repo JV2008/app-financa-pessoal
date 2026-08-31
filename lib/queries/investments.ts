@@ -1,4 +1,4 @@
-import { pool } from "@/lib/db";
+import { sql } from "@/lib/db";
 
 export type InvestmentRow = {
   id: string;
@@ -10,10 +10,12 @@ export type InvestmentRow = {
 };
 
 export async function getInvestmentsByAccount(accountId: string): Promise<InvestmentRow[]> {
-  const { rows } = await pool.query(
-    "SELECT id, account_id, name, invested_amount, current_value, updated_at FROM investments WHERE account_id = $1 ORDER BY updated_at DESC",
-    [accountId]
-  );
+  const rows = await sql`
+    SELECT id, account_id, name, invested_amount, current_value, updated_at
+    FROM investment
+    WHERE account_id = ${accountId}
+    ORDER BY updated_at DESC
+  `;
   return rows;
 }
 
@@ -21,15 +23,14 @@ export async function upsertInvestment(
   accountId: string,
   data: { name: string; investedAmount: number; currentValue: number }
 ) {
-  const { rows } = await pool.query(
-    `INSERT INTO investments (account_id, name, invested_amount, current_value, updated_at)
-     VALUES ($1, $2, $3, $4, now())
-     ON CONFLICT (account_id, name) DO UPDATE
-       SET invested_amount = EXCLUDED.invested_amount,
-           current_value = EXCLUDED.current_value,
-           updated_at = now()
-     RETURNING id, account_id, name, invested_amount, current_value, updated_at`,
-    [accountId, data.name, data.investedAmount, data.currentValue]
-  );
-  return rows[0];
+  const [row] = await sql`
+    INSERT INTO investment (account_id, name, invested_amount, current_value, updated_at)
+    VALUES (${accountId}, ${data.name}, ${data.investedAmount}, ${data.currentValue}, now())
+    ON CONFLICT (account_id, name) DO UPDATE
+      SET invested_amount = EXCLUDED.invested_amount,
+          current_value = EXCLUDED.current_value,
+          updated_at = now()
+    RETURNING id, account_id, name, invested_amount, current_value, updated_at
+  `;
+  return row;
 }

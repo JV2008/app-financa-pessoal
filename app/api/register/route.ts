@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nome, email e senha são obrigatórios" }, { status: 400 });
     }
 
-    const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+    const existing = await pool.query("SELECT id FROM \"user\" WHERE email = $1", [email]);
     if (existing.rows.length > 0) {
       return NextResponse.json({ error: "Email já cadastrado" }, { status: 409 });
     }
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const { rows } = await pool.query(
-      "INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id",
+      "INSERT INTO \"user\" (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id",
       [name, email, passwordHash]
     );
 
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ userId }, { status: 201 });
   } catch (error) {
+    console.error("Erro no cadastro:", error);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
