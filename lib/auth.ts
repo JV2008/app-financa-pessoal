@@ -22,9 +22,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             u.name,
             a.password AS password_hash
           FROM neon_auth."user" u
-          INNER JOIN neon_auth.account a ON a.user_id = u.id
+          INNER JOIN neon_auth.account a ON a."userId" = u.id
           WHERE u.email = ${credentials.email}
-            AND a.provider_id = 'credential'
+            AND a."providerId" = 'credential'
           LIMIT 1
         `;
         if (!user || !user.password_hash) {
@@ -44,6 +44,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
+
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.sub as string;
+      }
+
+      return session;
+    },
+  },
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",

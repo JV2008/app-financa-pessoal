@@ -7,6 +7,9 @@ import { MonthlyExpensesChart } from "@/components/charts/monthly-expenses";
 
 export default async function DashboardPage() {
   const session = await auth();
+
+  console.log("DASHBOARD SESSION:", session);
+
   if (!session?.user?.id) {
     redirect("/login");
   }
