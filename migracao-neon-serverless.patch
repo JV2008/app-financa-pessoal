@@ -1,0 +1,325 @@
+diff --git a/app/(dashboard)/accounts/page.tsx b/app/(dashboard)/accounts/page.tsx
+index 4cefc94..35635c9 100644
+--- a/app/(dashboard)/accounts/page.tsx
++++ b/app/(dashboard)/accounts/page.tsx
+@@ -1,6 +1,7 @@
+ import { auth } from "@/lib/auth";
+ import { redirect } from "next/navigation";
+-import { getAccountsByUser, getBalanceSummary } from "@/lib/queries/accounts";
++import { getAccountsByUser } from "@/lib/queries/accounts";
++import { getBalanceSummary } from "@/lib/queries/transactions";
+ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+ 
+ export default async function AccountsPage() {
+diff --git a/app/(dashboard)/page.tsx b/app/(dashboard)/page.tsx
+index 680e1b9..4ec80a8 100644
+--- a/app/(dashboard)/page.tsx
++++ b/app/(dashboard)/page.tsx
+@@ -1,7 +1,7 @@
+ import { auth } from "@/lib/auth";
+ import { redirect } from "next/navigation";
+-import { getAccountsByUser, getBalanceSummary } from "@/lib/queries/accounts";
+-import { getMonthlyExpensesByCategory } from "@/lib/queries/transactions";
++import { getAccountsByUser } from "@/lib/queries/accounts";
++import { getBalanceSummary, getMonthlyExpensesByCategory } from "@/lib/queries/transactions";
+ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+ import { MonthlyExpensesChart } from "@/components/charts/monthly-expenses";
+ 
+diff --git a/app/api/register/route.ts b/app/api/register/route.ts
+index 7cc0dfd..d917f0a 100644
+--- a/app/api/register/route.ts
++++ b/app/api/register/route.ts
+@@ -1,7 +1,7 @@
+ export const runtime = 'nodejs';
+ import { NextResponse } from "next/server";
+ import bcrypt from "bcryptjs";
+-import { pool } from "@/lib/db";
++import { sql } from "@/lib/db";
+ import { createAccount } from "@/lib/queries/accounts";
+ 
+ export async function POST(request: Request) {
+@@ -12,19 +12,20 @@ export async function POST(request: Request) {
+       return NextResponse.json({ error: "Nome, email e senha são obrigatórios" }, { status: 400 });
+     }
+ 
+-    const existing = await pool.query("SELECT id FROM \"user\" WHERE email = $1", [email]);
+-    if (existing.rows.length > 0) {
++    const [existing] = await sql`SELECT id FROM "user" WHERE email = ${email}`;
++    if (existing) {
+       return NextResponse.json({ error: "Email já cadastrado" }, { status: 409 });
+     }
+ 
+     const passwordHash = await bcrypt.hash(password, 10);
+ 
+-    const { rows } = await pool.query(
+-      "INSERT INTO \"user\" (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id",
+-      [name, email, passwordHash]
+-    );
++    const [row] = await sql`
++      INSERT INTO "user" (name, email, password_hash)
++      VALUES (${name}, ${email}, ${passwordHash})
++      RETURNING id
++    `;
+ 
+-    const userId = rows[0].id;
++    const userId = row.id;
+     await createAccount(userId, { name: "Conta Principal", type: "corrente" });
+ 
+     return NextResponse.json({ userId }, { status: 201 });
+@@ -32,4 +33,4 @@ export async function POST(request: Request) {
+     console.error("Erro no cadastro:", error);
+     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/lib/db.ts b/lib/db.ts
+index 92c58fe..f31700a 100644
+--- a/lib/db.ts
++++ b/lib/db.ts
+@@ -1,9 +1,3 @@
+-import { Pool } from "pg";
++import { neon } from "@neondatabase/serverless";
+ 
+-export const pool = new Pool({
+-  connectionString: process.env.DATABASE_URL,
+-  ssl: { rejectUnauthorized: false },
+-  keepAlive: true,
+-  idleTimeoutMillis: 30000,
+-  connectionTimeoutMillis: 10000,
+-});
++export const sql = neon(process.env.DATABASE_URL!);
+diff --git a/lib/queries/accounts.ts b/lib/queries/accounts.ts
+index 0d81336..eed873e 100644
+--- a/lib/queries/accounts.ts
++++ b/lib/queries/accounts.ts
+@@ -1,4 +1,4 @@
+-import { pool } from "@/lib/db";
++import { sql } from "@/lib/db";
+ 
+ export type AccountRow = {
+   id: string;
+@@ -10,54 +10,32 @@ export type AccountRow = {
+ };
+ 
+ export async function getAccountsByUser(userId: string): Promise<AccountRow[]> {
+-  const { rows } = await pool.query(
+-    "SELECT id, user_id, name, type, currency, created_at FROM account WHERE user_id = $1 ORDER BY created_at DESC",
+-    [userId]
+-  );
+-  return rows;
++  const rows = await sql`
++    SELECT id, user_id, name, type, currency, created_at
++    FROM account
++    WHERE user_id = ${userId}
++    ORDER BY created_at DESC
++  `;
++  return rows as AccountRow[];
+ }
+ 
+ export async function createAccount(
+   userId: string,
+   data: { name: string; type: AccountRow["type"]; currency?: string }
+ ) {
+-  const { rows } = await pool.query(
+-    "INSERT INTO account (user_id, name, type, currency) VALUES ($1, $2, $3, $4) RETURNING id, user_id, name, type, currency, created_at",
+-    [userId, data.name, data.type, data.currency ?? "BRL"]
+-  );
+-  return rows[0];
++  const [row] = await sql`
++    INSERT INTO account (user_id, name, type, currency)
++    VALUES (${userId}, ${data.name}, ${data.type}, ${data.currency ?? "BRL"})
++    RETURNING id, user_id, name, type, currency, created_at
++  `;
++  return row;
+ }
+ 
+ export async function getAccountById(accountId: string) {
+-  const { rows } = await pool.query(
+-    "SELECT id, user_id, name, type, currency, created_at FROM account WHERE id = $1",
+-    [accountId]
+-  );
+-  return rows[0] ?? null;
++  const [row] = await sql`
++    SELECT id, user_id, name, type, currency, created_at
++    FROM account
++    WHERE id = ${accountId}
++  `;
++  return row ?? null;
+ }
+-
+-export async function getBalanceSummary(userId: string, accountId?: string) {
+-  const params: (string | undefined)[] = [userId];
+-  let accountFilter = "";
+-  if (accountId) {
+-    accountFilter = "AND t.account_id = $2";
+-    params.push(accountId);
+-  }
+-
+-  const { rows } = await pool.query(
+-    `SELECT
+-       SUM(CASE WHEN t.type = 'receita' THEN t.amount ELSE -t.amount END) as balance,
+-       SUM(CASE WHEN t.type = 'receita' THEN t.amount ELSE 0 END) as income,
+-       SUM(CASE WHEN t.type = 'despesa' THEN t.amount ELSE 0 END) as expenses
+-     FROM transaction t
+-     JOIN account a ON a.id = t.account_id
+-     WHERE a.user_id = $1 ${accountFilter}`,
+-    params
+-  );
+-  const row = rows[0];
+-  return {
+-    balance: Number(row?.balance ?? 0),
+-    income: Number(row?.income ?? 0),
+-    expenses: Number(row?.expenses ?? 0),
+-  };
+-}
+\ No newline at end of file
+diff --git a/lib/queries/categories.ts b/lib/queries/categories.ts
+index 9fca93d..e57be38 100644
+--- a/lib/queries/categories.ts
++++ b/lib/queries/categories.ts
+@@ -15,5 +15,5 @@ export async function getCategoriesByUser(userId: string): Promise<CategoryRow[]
+     WHERE user_id = ${userId} OR user_id IS NULL
+     ORDER BY type, name
+   `;
+-  return rows;
++  return rows as CategoryRow[];
+ }
+\ No newline at end of file
+diff --git a/lib/queries/investments.ts b/lib/queries/investments.ts
+index bcc068d..03695bd 100644
+--- a/lib/queries/investments.ts
++++ b/lib/queries/investments.ts
+@@ -16,7 +16,7 @@ export async function getInvestmentsByAccount(accountId: string): Promise<Invest
+     WHERE account_id = ${accountId}
+     ORDER BY updated_at DESC
+   `;
+-  return rows;
++  return rows as InvestmentRow[];
+ }
+ 
+ export async function upsertInvestment(
+diff --git a/lib/queries/transactions.ts b/lib/queries/transactions.ts
+index 08dde1c..6fa2db7 100644
+--- a/lib/queries/transactions.ts
++++ b/lib/queries/transactions.ts
+@@ -15,8 +15,8 @@ export async function getTransactionsByUser(
+   userId: string,
+   filters?: { accountId?: string; categoryId?: string; startDate?: string; endDate?: string; month?: string }
+ ) {
+-  const conditions: string[] = [`a.user_id = ${userId}`];
+-  const values: (string | undefined)[] = [];
++  const conditions: string[] = [`a.user_id = $1`];
++  const values: (string | undefined)[] = [userId];
+ 
+   if (filters?.accountId) {
+     conditions.push(`t.account_id = $${values.length + 1}`);
+@@ -47,7 +47,7 @@ export async function getTransactionsByUser(
+     ORDER BY t.occurred_at DESC, t.created_at DESC
+   `;
+ 
+-  const rows = await sql.unsafe(query, values);
++  const rows = await sql(query, values);
+   return rows;
+ }
+ 
+@@ -55,13 +55,14 @@ export async function createTransaction(
+   userId: string,
+   data: { accountId: string; categoryId?: string | null; amount: number; type: TransactionRow["type"]; description?: string | null; occurredAt: string }
+ ) {
+-  const [row] = await sql`
+-    INSERT INTO transaction (account_id, category_id, amount, type, description, occurred_at)
+-    SELECT $1, $2, $3, $4, $5, $6
+-    FROM account a
+-    WHERE a.id = $1 AND a.user_id = $7
+-    RETURNING id, account_id, category_id, amount, type, description, occurred_at, created_at
+-  `, [data.accountId, data.categoryId ?? null, data.amount, data.type, data.description ?? null, data.occurredAt, userId];
++  const [row] = await sql(
++    `INSERT INTO transaction (account_id, category_id, amount, type, description, occurred_at)
++     SELECT $1, $2, $3, $4, $5, $6
++     FROM account a
++     WHERE a.id = $1 AND a.user_id = $7
++     RETURNING id, account_id, category_id, amount, type, description, occurred_at, created_at`,
++    [data.accountId, data.categoryId ?? null, data.amount, data.type, data.description ?? null, data.occurredAt, userId]
++  );
+   return row ?? null;
+ }
+ 
+@@ -103,7 +104,7 @@ export async function updateTransaction(
+   if (setClauses.length === 0) return null;
+ 
+   params.push(transactionId, userId);
+-  const [row] = await sql.unsafe(`
++  const [row] = await sql(`
+     UPDATE transaction t
+     SET ${setClauses.join(", ")}
+     FROM account a
+@@ -116,18 +117,22 @@ export async function updateTransaction(
+ }
+ 
+ export async function deleteTransaction(userId: string, transactionId: string) {
+-  const { rowCount } = await sql.unsafe(`
++  const rows = await sql(`
+     DELETE FROM transaction t
+     USING account a
+     WHERE t.id = $1
+       AND a.id = t.account_id
+       AND a.user_id = $2
++    RETURNING t.id
+   `, [transactionId, userId]);
+-  return (rowCount ?? 0) > 0;
++  return rows.length > 0;
+ }
+ 
+-export async function getMonthlyExpensesByCategory(userId: string, yearMonth: string) {
+-  const [row] = await sql`
++export async function getMonthlyExpensesByCategory(
++  userId: string,
++  yearMonth: string
++): Promise<{ name: string; color: string; total: string }[]> {
++  const rows = await sql`
+     SELECT c.name, c.color, SUM(t.amount) as total
+     FROM transaction t
+     JOIN account a ON a.id = t.account_id
+@@ -138,7 +143,7 @@ export async function getMonthlyExpensesByCategory(userId: string, yearMonth: st
+     GROUP BY c.name, c.color
+     ORDER BY total DESC
+   `;
+-  return row;
++  return rows as { name: string; color: string; total: string }[];
+ }
+ 
+ export async function getBalanceSummary(userId: string, accountId?: string) {
+diff --git a/package.json b/package.json
+index 155d305..e9acec6 100644
+--- a/package.json
++++ b/package.json
+@@ -18,7 +18,6 @@
+     "dotenv": "^17.4.2",
+     "next": "^15.0.0",
+     "next-auth": "beta",
+-    "pg": "^8.23.0",
+     "psql": "^0.0.1",
+     "react": "^18.3.0",
+     "react-dom": "^18.3.0",
+@@ -28,7 +27,6 @@
+   "devDependencies": {
+     "@types/bcryptjs": "^2.4.6",
+     "@types/node": "^20.0.0",
+-    "@types/pg": "^8.11.0",
+     "@types/react": "^18.3.0",
+     "autoprefixer": "^10.4.0",
+     "eslint": "^9.0.0",
+diff --git a/tsconfig.json b/tsconfig.json
+index a49c946..20e1c91 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -17,7 +17,7 @@
+     "isolatedModules": true,
+     "jsx": "preserve",
+     "incremental": true,
+-    "ignoreDeprecations": "6.0",
++    "ignoreDeprecations": "5.0",
+     "baseUrl": ".",
+     "paths": {
+       "@/*": [
