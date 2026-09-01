@@ -16,11 +16,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const [user] = await sql`
-          SELECT id, email, password_hash, name
-          FROM neon_auth."user"
-          WHERE email = ${credentials.email}
+          SELECT
+            u.id,
+            u.email,
+            u.name,
+            a.password AS password_hash
+          FROM neon_auth."user" u
+          INNER JOIN neon_auth.account a ON a.user_id = u.id
+          WHERE u.email = ${credentials.email}
+            AND a.provider_id = 'credential'
+          LIMIT 1
         `;
-        if (!user) {
+        if (!user || !user.password_hash) {
           return null;
         }
 
