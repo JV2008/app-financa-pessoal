@@ -1,11 +1,9 @@
-import { Pool } from "pg";
+const { Pool } = require("pg");
 
-export const pool = new Pool({
+const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: true,
-  keepAlive: true,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 8000,
 });
 console.time("conexao");
 pool.query("SELECT 1")
