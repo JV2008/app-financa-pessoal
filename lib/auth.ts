@@ -17,7 +17,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const [user] = await sql`
           SELECT id, email, password_hash, name
-          FROM "user"
+          FROM neon_auth."user"
           WHERE email = ${credentials.email}
         `;
         if (!user) {
