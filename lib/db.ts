@@ -1,21 +1,3 @@
-import { Pool } from "pg";
+import { neon } from "@neondatabase/serverless";
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: true,
-  keepAlive: true,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-});
-console.time("conexao");
-pool.query("SELECT 1")
-  .then((r) => {
-    console.timeEnd("conexao");
-    console.log("Conectou com sucesso:", r.rows);
-    process.exit(0);
-  })
-  .catch((e) => {
-    console.timeEnd("conexao");
-    console.error("Falhou:", e.message, e.cause?.message);
-    process.exit(1);
-  });
+export const sql = neon(process.env.DATABASE_URL!);
