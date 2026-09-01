@@ -1,19 +1,7 @@
-const { Pool } = require("pg");
+import { sql } from "@neondatabase/serverless";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-  connectionTimeoutMillis: 8000,
-});
 console.time("conexao");
-pool.query("SELECT 1")
-  .then((r) => {
-    console.timeEnd("conexao");
-    console.log("Conectou com sucesso:", r.rows);
-    process.exit(0);
-  })
-  .catch((e) => {
-    console.timeEnd("conexao");
-    console.error("Falhou:", e.message, e.cause?.message);
-    process.exit(1);
-  });
+const rows = await sql`SELECT 1`;
+console.timeEnd("conexao");
+console.log("Conectou com sucesso:", rows);
+process.exit(0);

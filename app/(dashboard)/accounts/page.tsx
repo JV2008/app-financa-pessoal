@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getAccountsByUser, getBalanceSummary } from "@/lib/queries/accounts";
+import { getAccountsByUser } from "@/lib/queries/accounts";
+import { getBalanceSummary } from "@/lib/queries/transactions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function AccountsPage() {

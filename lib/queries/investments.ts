@@ -16,7 +16,7 @@ export async function getInvestmentsByAccount(accountId: string): Promise<Invest
     WHERE account_id = ${accountId}
     ORDER BY updated_at DESC
   `;
-  return rows;
+  return rows as InvestmentRow[];
 }
 
 export async function upsertInvestment(

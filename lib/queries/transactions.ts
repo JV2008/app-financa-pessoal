@@ -47,7 +47,7 @@ export async function getTransactionsByUser(
     ORDER BY t.occurred_at DESC, t.created_at DESC
   `;
 
-  const rows = await sql.unsafe(query, values);
+  const rows = await sql.query(query, values);
   return rows;
 }
 
@@ -55,13 +55,13 @@ export async function createTransaction(
   userId: string,
   data: { accountId: string; categoryId?: string | null; amount: number; type: TransactionRow["type"]; description?: string | null; occurredAt: string }
 ) {
-  const [row] = await sql`
+  const [row] = await sql.query(`
     INSERT INTO transaction (account_id, category_id, amount, type, description, occurred_at)
     SELECT $1, $2, $3, $4, $5, $6
     FROM account a
     WHERE a.id = $1 AND a.user_id = $7
     RETURNING id, account_id, category_id, amount, type, description, occurred_at, created_at
-  `, [data.accountId, data.categoryId ?? null, data.amount, data.type, data.description ?? null, data.occurredAt, userId];
+  `, [data.accountId, data.categoryId ?? null, data.amount, data.type, data.description ?? null, data.occurredAt, userId]);
   return row ?? null;
 }
 
@@ -103,7 +103,7 @@ export async function updateTransaction(
   if (setClauses.length === 0) return null;
 
   params.push(transactionId, userId);
-  const [row] = await sql.unsafe(`
+  const [row] = await sql.query(`
     UPDATE transaction t
     SET ${setClauses.join(", ")}
     FROM account a
@@ -116,18 +116,24 @@ export async function updateTransaction(
 }
 
 export async function deleteTransaction(userId: string, transactionId: string) {
-  const { rowCount } = await sql.unsafe(`
+  const result = await sql.query(`
     DELETE FROM transaction t
     USING account a
     WHERE t.id = $1
       AND a.id = t.account_id
       AND a.user_id = $2
-  `, [transactionId, userId]);
-  return (rowCount ?? 0) > 0;
+  `, [transactionId, userId], { fullResults: true });
+  return (result.rowCount ?? 0) > 0;
 }
 
-export async function getMonthlyExpensesByCategory(userId: string, yearMonth: string) {
-  const [row] = await sql`
+export type MonthlyExpenseRow = {
+  name: string;
+  color: string;
+  total: string;
+};
+
+export async function getMonthlyExpensesByCategory(userId: string, yearMonth: string): Promise<MonthlyExpenseRow[]> {
+  const rows = await sql`
     SELECT c.name, c.color, SUM(t.amount) as total
     FROM transaction t
     JOIN account a ON a.id = t.account_id
@@ -138,7 +144,7 @@ export async function getMonthlyExpensesByCategory(userId: string, yearMonth: st
     GROUP BY c.name, c.color
     ORDER BY total DESC
   `;
-  return row;
+  return rows as MonthlyExpenseRow[];
 }
 
 export async function getBalanceSummary(userId: string, accountId?: string) {

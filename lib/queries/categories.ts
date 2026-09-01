@@ -15,5 +15,5 @@ export async function getCategoriesByUser(userId: string): Promise<CategoryRow[]
     WHERE user_id = ${userId} OR user_id IS NULL
     ORDER BY type, name
   `;
-  return rows;
+  return rows as CategoryRow[];
 }

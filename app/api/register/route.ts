@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { pool } from "@/lib/db";
+import { sql } from "@/lib/db";
 import { createAccount } from "@/lib/queries/accounts";
 
 export async function POST(request: Request) {
@@ -12,19 +12,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nome, email e senha são obrigatórios" }, { status: 400 });
     }
 
-    const existing = await pool.query("SELECT id FROM \"user\" WHERE email = $1", [email]);
-    if (existing.rows.length > 0) {
+    const [existing] = await sql`SELECT id FROM "user" WHERE email = ${email}`;
+    if (existing) {
       return NextResponse.json({ error: "Email já cadastrado" }, { status: 409 });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const { rows } = await pool.query(
-      "INSERT INTO \"user\" (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id",
-      [name, email, passwordHash]
-    );
+    const [row] = await sql`
+      INSERT INTO "user" (name, email, password_hash)
+      VALUES (${name}, ${email}, ${passwordHash})
+      RETURNING id
+    `;
 
-    const userId = rows[0].id;
+    const userId = row.id;
     await createAccount(userId, { name: "Conta Principal", type: "corrente" });
 
     return NextResponse.json({ userId }, { status: 201 });

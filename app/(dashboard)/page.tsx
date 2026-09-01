@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { getAccountsByUser, getBalanceSummary } from "@/lib/queries/accounts";
-import { getMonthlyExpensesByCategory } from "@/lib/queries/transactions";
+import { getAccountsByUser } from "@/lib/queries/accounts";
+import { getBalanceSummary, getMonthlyExpensesByCategory } from "@/lib/queries/transactions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MonthlyExpensesChart } from "@/components/charts/monthly-expenses";
 
