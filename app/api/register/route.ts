@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nome, email e senha são obrigatórios" }, { status: 400 });
     }
 
-    const [existing] = await sql`SELECT id FROM "user" WHERE email = ${email}`;
+    const [existing] = await sql`SELECT id FROM neon_auth."user" WHERE email = ${email}`;
     if (existing) {
       return NextResponse.json({ error: "Email já cadastrado" }, { status: 409 });
     }
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const [row] = await sql`
-      INSERT INTO "user" (name, email, password_hash)
+      INSERT INTO neon_auth."user" (name, email, password_hash)
       VALUES (${name}, ${email}, ${passwordHash})
       RETURNING id
     `;
