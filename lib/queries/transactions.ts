@@ -15,8 +15,8 @@ export async function getTransactionsByUser(
   userId: string,
   filters?: { accountId?: string; categoryId?: string; startDate?: string; endDate?: string; month?: string }
 ) {
-  const conditions: string[] = [`a.user_id = ${userId}`];
-  const values: (string | undefined)[] = [];
+  const conditions: string[] = [`a.user_id = $1`];
+  const values: (string | undefined)[] = [userId];
 
   if (filters?.accountId) {
     conditions.push(`t.account_id = $${values.length + 1}`);
@@ -41,8 +41,8 @@ export async function getTransactionsByUser(
 
   const query = `
     SELECT t.id, t.account_id, t.category_id, t.amount, t.type, t.description, t.occurred_at, t.created_at
-    FROM neon_auth.transaction t
-    JOIN neon_auth.account a ON a.id = t.account_id
+    FROM transaction t
+    JOIN account a ON a.id = t.account_id
     WHERE ${conditions.join(" AND ")}
     ORDER BY t.occurred_at DESC, t.created_at DESC
   `;
@@ -56,9 +56,9 @@ export async function createTransaction(
   data: { accountId: string; categoryId?: string | null; amount: number; type: TransactionRow["type"]; description?: string | null; occurredAt: string }
 ) {
   const [row] = await sql.query(`
-    INSERT INTO neon_auth.transaction (account_id, category_id, amount, type, description, occurred_at)
+    INSERT INTO transaction (account_id, category_id, amount, type, description, occurred_at)
     SELECT $1, $2, $3, $4, $5, $6
-    FROM neon_auth.account a
+    FROM account a
     WHERE a.id = $1 AND a.user_id = $7
     RETURNING id, account_id, category_id, amount, type, description, occurred_at, created_at
   `, [data.accountId, data.categoryId ?? null, data.amount, data.type, data.description ?? null, data.occurredAt, userId]);

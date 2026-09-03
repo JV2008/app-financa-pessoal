@@ -61,7 +61,7 @@ async function main() {
         console.log("");
         console.log("Aplicando em transacao unica...");
 
-        await sql.transaction(statements.map((statement) => sql(statement)));
+        await sql.transaction(statements.map((statement) => sql.query(statement)));
 
         console.log("");
         console.log("Schema aplicado com sucesso.");
