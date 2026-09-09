@@ -1,30 +1,51 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getAccountsByUser } from "@/lib/queries/accounts";
-import { getBalanceSummary, getMonthlyExpensesByCategory } from "@/lib/queries/transactions";
+import { getBalanceSummary, getMonthlyExpensesByCategory, getTransactionsByUser } from "@/lib/queries/transactions";
+import { getCategoriesByUser } from "@/lib/queries/categories";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
 import { MonthlyExpensesChart } from "@/components/charts/monthly-expenses";
+import { AccountModal } from "@/components/accounts/account-modal";
+import { TransactionModal } from "@/components/transactions/transaction-modal";
 
 export default async function DashboardPage() {
   const session = await auth();
-
-  console.log("DASHBOARD SESSION:", session);
 
   if (!session?.user?.id) {
     redirect("/login");
   }
 
   const userId = session.user.id;
-  const [accounts, balance, monthlyExpenses] = await Promise.all([
+  const [accounts, balance, monthlyExpenses, transactions, categories] = await Promise.all([
     getAccountsByUser(userId),
     getBalanceSummary(userId),
     getMonthlyExpensesByCategory(userId, new Date().toISOString().slice(0, 7)),
+    getTransactionsByUser(userId, { month: new Date().toISOString().slice(0, 7) }),
+    getCategoriesByUser(userId),
   ]);
+
+  const transactionColumns = [
+    { header: "Data", accessorKey: "occurred_at" as const },
+    { header: "Descrição", accessorKey: "description" as const },
+    {
+      header: "Tipo",
+      accessorKey: "type" as const,
+      cell: (row: any) => <Badge variant={row.type === "receita" ? "income" : "expense"}>{row.type}</Badge>,
+    },
+    {
+      header: "Valor",
+      accessorKey: "amount" as const,
+      cell: (row: any) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(row.amount)),
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Dashboard</h1>
 
+      {/* Resumo financeiro */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader>
@@ -58,6 +79,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
+      {/* Gráfico */}
       <Card>
         <CardHeader>
           <CardTitle>Gastos por Categoria</CardTitle>
@@ -66,6 +88,42 @@ export default async function DashboardPage() {
           <MonthlyExpensesChart data={monthlyExpenses} />
         </CardContent>
       </Card>
+
+      {/* Contas */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Contas</h2>
+          <AccountModal />
+        </div>
+        {accounts.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            Nenhuma conta cadastrada ainda. Crie uma conta para começar a lançar transações.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {accounts.map((account) => (
+              <Card key={account.id}>
+                <CardHeader>
+                  <CardTitle>{account.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-500">Tipo: {account.type}</p>
+                  <p className="text-sm text-gray-500">Moeda: {account.currency}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Transações */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Transações</h2>
+          <TransactionModal accounts={accounts} categories={categories} />
+        </div>
+        <DataTable data={transactions} columns={transactionColumns} />
+      </div>
     </div>
   );
 }
