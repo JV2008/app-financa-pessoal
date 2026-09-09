@@ -68,12 +68,17 @@ export async function createTransaction(
 export async function updateTransaction(
   userId: string,
   transactionId: string,
-  data: { amount?: number; type?: TransactionRow["type"]; description?: string | null; occurredAt?: string; categoryId?: string | null }
+  data: { accountId?: string; amount?: number; type?: TransactionRow["type"]; description?: string | null; occurredAt?: string; categoryId?: string | null }
 ) {
   const setClauses: string[] = [];
   const params: (string | number | null)[] = [];
   let idx = 1;
 
+  if (data.accountId !== undefined) {
+    setClauses.push(`account_id = $${idx}`);
+    params.push(data.accountId);
+    idx++;
+  }
   if (data.amount !== undefined) {
     setClauses.push(`amount = $${idx}`);
     params.push(data.amount);

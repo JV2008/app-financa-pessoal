@@ -10,8 +10,9 @@ import { MonthlyExpensesChart } from "@/components/charts/monthly-expenses";
 import { AccountModal } from "@/components/accounts/account-modal";
 import { TransactionModal } from "@/components/transactions/transaction-modal";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
+import { TransactionActions } from "@/components/transactions/transaction-actions";
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountId?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountId?: string; month?: string }> }) {
   const params = await searchParams;
   const session = await auth();
 
@@ -19,25 +20,43 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     redirect("/login");
   }
 
+  const currentMonth = new Date().toISOString().slice(0, 7);
   const userId = session.user.id;
   const [accounts, balance, monthlyExpenses, transactions, categories] = await Promise.all([
     getAccountsByUser(userId),
     getBalanceSummary(userId),
-    getMonthlyExpensesByCategory(userId, new Date().toISOString().slice(0, 7)),
-    getTransactionsByUser(userId, { month: new Date().toISOString().slice(0, 7), accountId: params.accountId }),
+    getMonthlyExpensesByCategory(userId, currentMonth),
+    getTransactionsByUser(userId, { month: params.month, accountId: params.accountId }),
     getCategoriesByUser(userId),
   ]);
 
-  // Mapear nomes de conta para exibição
+  // Mapear nomes de conta e categoria para exibição rápida
   const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]));
+  const categoryMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
 
   const transactionColumns = [
-    { header: "Data", accessorKey: "occurred_at" as const },
+    {
+      header: "Data",
+      accessorKey: "occurred_at" as const,
+      cell: (row: any) => {
+        // timeZone: "UTC" evita que o fuso horário subtraia 1 dia
+        return new Intl.DateTimeFormat("pt-BR", {
+          dateStyle: "short",
+          timeZone: "UTC",
+        }).format(new Date(row.occurred_at));
+      },
+    },
+
     { header: "Descrição", accessorKey: "description" as const },
     {
       header: "Conta",
       accessorKey: "account_id" as const,
       cell: (row: any) => accountMap[row.account_id] ?? "—",
+    },
+    {
+      header: "Categoria",
+      accessorKey: "category_id" as const,
+      cell: (row: any) => categoryMap[row.category_id] ?? "Sem categoria",
     },
     {
       header: "Tipo",
@@ -48,6 +67,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       header: "Valor",
       accessorKey: "amount" as const,
       cell: (row: any) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(row.amount)),
+    },
+    {
+      header: "Ações",
+      accessorKey: "id" as const,
+      cell: (row: any) => (
+        <TransactionActions
+          transaction={row}
+          accounts={accounts}
+          categories={categories}
+        />
+      ),
     },
   ];
 

@@ -80,7 +80,9 @@ export function TransactionActions({ transaction, accounts, categories }: Transa
 
   // Formatar a data para o input date (YYYY-MM-DD)
   const formattedDate = transaction.occurred_at
-    ? new Date(transaction.occurred_at).toISOString().split("T")[0]
+    ? (typeof transaction.occurred_at === "string"
+        ? transaction.occurred_at.slice(0, 10)
+        : new Date(transaction.occurred_at).toISOString().split("T")[0])
     : "";
 
   return (
