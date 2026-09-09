@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { MonthlyExpensesChart } from "@/components/charts/monthly-expenses";
 import { AccountModal } from "@/components/accounts/account-modal";
 import { TransactionModal } from "@/components/transactions/transaction-modal";
+import { TransactionFilters } from "@/components/transactions/transaction-filters";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountId?: string }> }) {
+  const params = await searchParams;
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -22,13 +24,21 @@ export default async function DashboardPage() {
     getAccountsByUser(userId),
     getBalanceSummary(userId),
     getMonthlyExpensesByCategory(userId, new Date().toISOString().slice(0, 7)),
-    getTransactionsByUser(userId, { month: new Date().toISOString().slice(0, 7) }),
+    getTransactionsByUser(userId, { month: new Date().toISOString().slice(0, 7), accountId: params.accountId }),
     getCategoriesByUser(userId),
   ]);
+
+  // Mapear nomes de conta para exibição
+  const accountMap = Object.fromEntries(accounts.map((a) => [a.id, a.name]));
 
   const transactionColumns = [
     { header: "Data", accessorKey: "occurred_at" as const },
     { header: "Descrição", accessorKey: "description" as const },
+    {
+      header: "Conta",
+      accessorKey: "account_id" as const,
+      cell: (row: any) => accountMap[row.account_id] ?? "—",
+    },
     {
       header: "Tipo",
       accessorKey: "type" as const,
@@ -122,6 +132,7 @@ export default async function DashboardPage() {
           <h2 className="text-xl font-semibold">Transações</h2>
           <TransactionModal accounts={accounts} categories={categories} />
         </div>
+        <TransactionFilters accounts={accounts} />
         <DataTable data={transactions} columns={transactionColumns} />
       </div>
     </div>
