@@ -4,12 +4,11 @@ import { getAccountsByUser } from "@/lib/queries/accounts";
 import { getBalanceSummary, getMonthlyExpensesByCategory, getTransactionsByUser } from "@/lib/queries/transactions";
 import { getCategoriesByUser } from "@/lib/queries/categories";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { MonthlyExpensesChart } from "@/components/charts/monthly-expenses";
 import { AccountModal } from "@/components/accounts/account-modal";
 import { TransactionModal } from "@/components/transactions/transaction-modal";
 import { TransactionActions } from "@/components/transactions/transaction-actions";
+import { FinancialSummaryCard } from "@/components/dashboard/financial-summary-card";
 
 
 
@@ -164,40 +163,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         )}
       </div>
+      {/* Resumo Financeiro Consolidado */}
+      <FinancialSummaryCard
+        balance={balance}
+        accounts={accounts}
+        categories={categories}
+      />
 
-      {/* Resumo financeiro */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Saldo Atual</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(balance.balance)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Receitas do Mês</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-green-600">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(balance.income)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Despesas do Mês</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-red-600">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(balance.expenses)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Nova Transação */}
       <TransactionModal accounts={accounts} categories={categories} />
