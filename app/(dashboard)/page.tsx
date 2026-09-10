@@ -99,12 +99,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {accounts.map((account) => (
               <Card key={account.id}>
-                <CardHeader>
-                  <CardTitle>{account.name}</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-semibold">{account.name}</CardTitle>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700 font-medium capitalize">
+                    {account.type}
+                  </span>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-gray-500">Tipo: {account.type}</p>
-                  <p className="text-sm text-gray-500">Moeda: {account.currency}</p>
+                  <p className="text-2xl font-bold">
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: account.currency || "BRL",
+                    }).format(account.balance)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Saldo em conta</p>
                 </CardContent>
               </Card>
             ))}
