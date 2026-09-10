@@ -146,6 +146,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </Card>
       </div>
 
+      {/* Nova Transação */}
+      <TransactionModal accounts={accounts} categories={categories} />
+
       {/* Gráfico */}
       <Card>
         <CardHeader>
@@ -157,9 +160,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </Card>
 
 
-
-      {/* Nova Transação */}
-      <TransactionModal accounts={accounts} categories={categories} />
     </div>
   );
 }
