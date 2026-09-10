@@ -6,8 +6,9 @@ import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Início" },
   { href: "/transacoes", label: "Transações/Extrato" },
+  { href: "/analise", label: "Análise Financeira" },
 ];
 
 export function Sidebar() {
@@ -32,14 +33,7 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
-      <div className="p-4 border-t border-gray-800">
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className="w-full text-left rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-        >
-          Sair
-        </button>
-      </div>
+
     </aside>
   );
 }

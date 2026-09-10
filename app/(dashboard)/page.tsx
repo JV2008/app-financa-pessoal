@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth, signOut } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getAccountsByUser } from "@/lib/queries/accounts";
 import { getBalanceSummary, getMonthlyExpensesByCategory, getTransactionsByUser } from "@/lib/queries/transactions";
@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { MonthlyExpensesChart } from "@/components/charts/monthly-expenses";
 import { AccountModal } from "@/components/accounts/account-modal";
 import { TransactionModal } from "@/components/transactions/transaction-modal";
-import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import { TransactionActions } from "@/components/transactions/transaction-actions";
+
+
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ accountId?: string; month?: string }> }) {
   const params = await searchParams;
@@ -83,7 +84,51 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
+      <h1 className="text-3xl font-bold">Inicio</h1>
+
+
+      {/*Informações do Usuário*/}
+      <Card>
+        <CardHeader>
+          <CardTitle>Perfil</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</p>
+              <p className="text-lg font-semibold text-gray-900">{session?.user?.name || "Não informado"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">E-mail</p>
+              <p className="text-lg font-semibold text-gray-900">{session?.user?.email || "Não informado"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Contas Vinculadas</p>
+              <p className="text-lg font-semibold text-gray-900">
+                {`Possui ${accounts.length} ${accounts.length === 1 ? "conta vinculada" : "contas vinculadas"}`}
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-4 mt-4 border-t border-gray-200">
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/login" });
+              }}
+            >
+              <button
+                type="submit"
+                className="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+              >
+                Sair da conta
+              </button>
+            </form>
+          </div>
+
+        </CardContent>
+      </Card>
+
 
       {/* Contas */}
       <div className="space-y-3">
@@ -156,16 +201,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       {/* Nova Transação */}
       <TransactionModal accounts={accounts} categories={categories} />
-
-      {/* Gráfico */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Gastos por Categoria</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <MonthlyExpensesChart data={monthlyExpenses} />
-        </CardContent>
-      </Card>
 
 
     </div>
