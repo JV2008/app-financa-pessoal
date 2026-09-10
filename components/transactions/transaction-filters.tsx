@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 
 interface TransactionFiltersProps {
@@ -9,6 +9,7 @@ interface TransactionFiltersProps {
 
 export function TransactionFilters({ accounts }: TransactionFiltersProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentAccountId = searchParams.get("accountId") ?? "";
 
@@ -23,9 +24,9 @@ export function TransactionFilters({ accounts }: TransactionFiltersProps) {
         params.delete("accountId");
       }
 
-      router.push(`/?${params.toString()}`);
+      router.push(`${pathname}?${params.toString()}`);
     },
-    [router, searchParams]
+    [pathname, router, searchParams]
   );
 
   return (

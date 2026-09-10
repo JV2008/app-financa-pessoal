@@ -13,7 +13,7 @@ export type TransactionRow = {
 
 export async function getTransactionsByUser(
   userId: string,
-  filters?: { accountId?: string; categoryId?: string; startDate?: string; endDate?: string; month?: string }
+  filters?: { accountId?: string; categoryId?: string; type?: string; startDate?: string; endDate?: string; month?: string }
 ) {
   const conditions: string[] = [`a.user_id = $1`];
   const values: (string | undefined)[] = [userId];
@@ -25,6 +25,10 @@ export async function getTransactionsByUser(
   if (filters?.categoryId) {
     conditions.push(`t.category_id = $${values.length + 1}`);
     values.push(filters.categoryId);
+  }
+  if (filters?.type) {
+    conditions.push(`t.type = $${values.length + 1}`);
+    values.push(filters.type);
   }
   if (filters?.startDate) {
     conditions.push(`t.occurred_at >= $${values.length + 1}`);

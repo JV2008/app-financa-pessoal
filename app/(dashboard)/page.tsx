@@ -85,6 +85,33 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Dashboard</h1>
 
+      {/* Contas */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Contas Bancárias Vínculadas</h2>
+          <AccountModal />
+        </div>
+        {accounts.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            Nenhuma conta cadastrada ainda. Crie uma conta para começar a lançar transações.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {accounts.map((account) => (
+              <Card key={account.id}>
+                <CardHeader>
+                  <CardTitle>{account.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-500">Tipo: {account.type}</p>
+                  <p className="text-sm text-gray-500">Moeda: {account.currency}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Resumo financeiro */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -129,42 +156,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </CardContent>
       </Card>
 
-      {/* Contas */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Contas</h2>
-          <AccountModal />
-        </div>
-        {accounts.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Nenhuma conta cadastrada ainda. Crie uma conta para começar a lançar transações.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {accounts.map((account) => (
-              <Card key={account.id}>
-                <CardHeader>
-                  <CardTitle>{account.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-500">Tipo: {account.type}</p>
-                  <p className="text-sm text-gray-500">Moeda: {account.currency}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Transações */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Transações</h2>
-          <TransactionModal accounts={accounts} categories={categories} />
-        </div>
-        <TransactionFilters accounts={accounts} />
-        <DataTable data={transactions} columns={transactionColumns} />
-      </div>
+
+      {/* Nova Transação */}
+      <TransactionModal accounts={accounts} categories={categories} />
     </div>
   );
 }
