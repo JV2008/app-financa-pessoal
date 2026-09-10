@@ -537,7 +537,7 @@ export function AnalyticsDashboard({
             💡 Dica: Especialistas recomendam a regra 50-30-20 (50% para necessidades, 30% para estilo de vida e 20% para investimentos e reservas).
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="primary" onClick={() => setIsGoalModalOpen(false)}>
+            <Button variant="secondary" onClick={() => setIsGoalModalOpen(false)}>
               Fechar
             </Button>
             <Button onClick={() => setIsGoalModalOpen(false)}>
@@ -580,7 +580,7 @@ export function AnalyticsDashboard({
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button
-              variant="primary"
+              variant="secondary"
               onClick={() => setIsCustomDateModalOpen(false)}
             >
               Cancelar
