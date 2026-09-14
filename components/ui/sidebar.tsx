@@ -17,6 +17,7 @@ export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
+<<<<<<< HEAD
     <aside className="w-full md:w-64 bg-gray-900 text-white flex flex-col md:min-h-screen shrink-0 border-b md:border-b-0 md:border-r border-gray-800 sticky top-0 z-40 md:static">
       {/* Topo da Sidebar / Barra Superior Mobile */}
       <div className="p-4 md:p-6 flex items-center justify-between border-b md:border-b-0 border-gray-800">
@@ -24,6 +25,37 @@ export function Sidebar() {
           <span className="text-xl">💰</span>
           <h1 className="text-xl font-bold tracking-wide text-white">Finanças</h1>
         </div>
+=======
+    <aside className="w-64 bg-gray-900 text-white min-h-screen flex flex-col">
+      <div className="p-6 border-b border-gray-800">
+
+        <div className="flex items-center gap-3">
+          <img
+            src="/IconApp.png"
+            alt="MyFinanceApp"
+            width={100}
+            height={100}
+            className="h-10 w-10 rounded-xl object-cover"
+          />
+
+        </div>
+
+      </div>
+      <nav className="flex-1 p-4 space-y-2">
+        {navItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "block rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              pathname === item.href ? "bg-gray-800 text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
+            )}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+>>>>>>> develop
 
         {/* Botão Hamburger visível apenas em telas menores que md */}
         <button
