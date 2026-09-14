@@ -312,13 +312,8 @@ export function AnalyticsDashboard({
                   }
                 }}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${isActive
-<<<<<<< HEAD
                   ? "bg-blue-700 text-white shadow-sm"
                   : "text-gray-600 hover:bg-white hover:text-gray-900"
-=======
-                    ? "bg-blue-700 text-white shadow-sm"
-                    : "text-gray-600 hover:bg-white hover:text-gray-900"
->>>>>>> develop
                   }`}
               >
                 {tab.label}
