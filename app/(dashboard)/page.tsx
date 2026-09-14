@@ -171,8 +171,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       />
 
 
-      {/* Nova Transação */}
-      <TransactionModal accounts={accounts} categories={categories} />
 
 
     </div>
