@@ -17,7 +17,18 @@ export function Sidebar() {
   return (
     <aside className="w-64 bg-gray-900 text-white min-h-screen flex flex-col">
       <div className="p-6 border-b border-gray-800">
-        <h1 className="text-xl font-bold">Finanças</h1>
+
+        <div className="flex items-center gap-3">
+          <img
+            src="/IconApp.png"
+            alt="MyFinanceApp"
+            width={100}
+            height={100}
+            className="h-10 w-10 rounded-xl object-cover"
+          />
+
+        </div>
+
       </div>
       <nav className="flex-1 p-4 space-y-2">
         {navItems.map((item) => (

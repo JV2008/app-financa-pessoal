@@ -311,11 +311,10 @@ export function AnalyticsDashboard({
                     setSelectedPeriod(tab.id);
                   }
                 }}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  isActive
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${isActive
                     ? "bg-blue-700 text-white shadow-sm"
                     : "text-gray-600 hover:bg-white hover:text-gray-900"
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -538,7 +537,7 @@ export function AnalyticsDashboard({
             💡 Dica: Especialistas recomendam a regra 50-30-20 (50% para necessidades, 30% para estilo de vida e 20% para investimentos e reservas).
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setIsGoalModalOpen(false)}>
+            <Button variant="secondary" onClick={() => setIsGoalModalOpen(false)}>
               Fechar
             </Button>
             <Button onClick={() => setIsGoalModalOpen(false)}>
@@ -581,7 +580,7 @@ export function AnalyticsDashboard({
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => setIsCustomDateModalOpen(false)}
             >
               Cancelar
