@@ -5,6 +5,8 @@ import { getTransactionsByUser } from "@/lib/queries/transactions";
 import { getCategoriesByUser } from "@/lib/queries/categories";
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard";
 
+export const dynamic = "force-dynamic";
+
 export default async function AnalisePage({
   searchParams,
 }: {
@@ -20,7 +22,7 @@ export default async function AnalisePage({
   const userId = session.user.id;
   const [accounts, transactions, categories] = await Promise.all([
     getAccountsByUser(userId),
-    getTransactionsByUser(userId, { accountId: params.accountId }),
+    getTransactionsByUser(userId),
     getCategoriesByUser(userId),
   ]);
 
@@ -30,6 +32,7 @@ export default async function AnalisePage({
         transactions={transactions as any}
         accounts={accounts}
         categories={categories}
+        initialAccountId={params.accountId}
       />
     </div>
   );
