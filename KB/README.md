@@ -9,6 +9,7 @@ Base de conhecimento técnica e de produto do **App de Finanças Pessoais**. Ela
 | [design-system.md](./design-system.md) | Tokens visuais, componentes, padrões de texto e acessibilidade. |
 | [funcionalidades.md](./funcionalidades.md) | Jornadas do usuário, interações, validações e estado de cada funcionalidade. |
 | [architecture.md](./architecture.md) | Rotas, bibliotecas, dados, APIs, diagramas e regras de negócio. |
+| [fix_solucion_graphic.md](./fix_solucion_graphic.md) | Resolução técnica de atualização e sincronização dos gráficos analíticos. |
 
 ## Convenções desta KB
 
