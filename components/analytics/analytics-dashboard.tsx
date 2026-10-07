@@ -29,24 +29,61 @@ interface TransactionItem {
   amount: string | number;
   type: "receita" | "despesa" | "transferencia";
   description: string | null;
-  occurred_at: string;
+  occurred_at: string | Date;
 }
 
 interface AnalyticsDashboardProps {
   transactions: TransactionItem[];
   accounts: AccountItem[];
   categories: CategoryItem[];
+  initialAccountId?: string;
 }
 
 type PeriodType = "este-mes" | "3-meses" | "6-meses" | "ano-atual" | "personalizado";
+
+// Normalização segura de data em UTC puro sem sofrer deslocamento de fuso local
+function parseUTCDate(dateInput: string | Date | unknown): Date {
+  if (!dateInput) return new Date();
+
+  // Se já for um objeto Date (ex.: retornado diretamente pelo driver Postgres)
+  if (dateInput instanceof Date) {
+    if (isNaN(dateInput.getTime())) return new Date();
+    return new Date(Date.UTC(dateInput.getUTCFullYear(), dateInput.getUTCMonth(), dateInput.getUTCDate(), 12, 0, 0));
+  }
+
+  // Se for string ou valor serializado
+  const dateStr = typeof dateInput === "string" ? dateInput : String(dateInput);
+  const cleanDate = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
+  const parts = cleanDate.split("-").map(Number);
+  if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+    return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12, 0, 0));
+  }
+  return new Date(dateStr);
+}
+
+function getUTCMonthKey(date: Date): string {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+// Sanitização numérica para evitar NaN em retornos de string do driver Postgres
+function parseSafeAmount(value: string | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return isNaN(value) ? 0 : value;
+  const cleaned = String(value).trim().replace(",", ".");
+  const num = Number(cleaned);
+  return isNaN(num) ? 0 : num;
+}
 
 export function AnalyticsDashboard({
   transactions,
   accounts,
   categories,
+  initialAccountId,
 }: AnalyticsDashboardProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("6-meses");
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("all");
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(initialAccountId || "all");
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [isCustomDateModalOpen, setIsCustomDateModalOpen] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<string>("");
@@ -71,27 +108,32 @@ export function AnalyticsDashboard({
   // Filtro de data limite baseado no período
   const { startDate, endDate, periodLabel } = useMemo(() => {
     const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth();
     let start: Date;
+    let end = new Date(Date.UTC(currentYear, currentMonth + 1, 0, 23, 59, 59, 999));
     let label = "Últimos 6 meses";
 
     if (selectedPeriod === "este-mes") {
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      start = new Date(Date.UTC(currentYear, currentMonth, 1, 0, 0, 0));
       label = "Este Mês";
     } else if (selectedPeriod === "3-meses") {
-      start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      start = new Date(Date.UTC(currentYear, currentMonth - 2, 1, 0, 0, 0));
       label = "Últimos 3 meses";
     } else if (selectedPeriod === "ano-atual") {
-      start = new Date(now.getFullYear(), 0, 1);
-      label = `Ano Atual (${now.getFullYear()})`;
+      start = new Date(Date.UTC(currentYear, 0, 1, 0, 0, 0));
+      label = `Ano Atual (${currentYear})`;
     } else if (selectedPeriod === "personalizado" && customStartDate && customEndDate) {
-      start = new Date(customStartDate);
+      const [sY, sM, sD] = customStartDate.split("-").map(Number);
+      const [eY, eM, eD] = customEndDate.split("-").map(Number);
+      start = new Date(Date.UTC(sY, sM - 1, sD, 0, 0, 0));
+      end = new Date(Date.UTC(eY, eM - 1, eD, 23, 59, 59, 999));
       label = "Personalizado";
     } else {
       // 6 meses padrão
-      start = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-      const startMonthStr = start.toLocaleDateString("pt-BR", { month: "short" });
-      const endMonthStr = end.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
+      start = new Date(Date.UTC(currentYear, currentMonth - 5, 1, 0, 0, 0));
+      const startMonthStr = start.toLocaleDateString("pt-BR", { month: "short", timeZone: "UTC" });
+      const endMonthStr = end.toLocaleDateString("pt-BR", { month: "short", year: "numeric", timeZone: "UTC" });
       label = `Últimos 6 meses (${startMonthStr} – ${endMonthStr})`;
     }
 
@@ -101,7 +143,7 @@ export function AnalyticsDashboard({
   // Transações filtradas por Período e por Conta
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
-      const txDate = new Date(t.occurred_at);
+      const txDate = parseUTCDate(t.occurred_at);
       if (txDate < startDate || txDate > endDate) return false;
       if (selectedAccountId !== "all" && t.account_id !== selectedAccountId) return false;
       return true;
@@ -114,7 +156,7 @@ export function AnalyticsDashboard({
     let expenses = 0;
 
     filteredTransactions.forEach((t) => {
-      const val = Number(t.amount);
+      const val = parseSafeAmount(t.amount);
       if (t.type === "receita") income += val;
       if (t.type === "despesa") expenses += val;
     });
@@ -125,29 +167,31 @@ export function AnalyticsDashboard({
     // Soma do saldo das contas selecionadas
     const accountsBalance =
       selectedAccountId === "all"
-        ? accounts.reduce((sum, a) => sum + Number(a.balance || 0), 0)
-        : Number(accounts.find((a) => a.id === selectedAccountId)?.balance || 0);
+        ? accounts.reduce((sum, a) => sum + parseSafeAmount(a.balance), 0)
+        : parseSafeAmount(accounts.find((a) => a.id === selectedAccountId)?.balance);
 
     return { income, expenses, netSavings, savingsRate, accountsBalance };
   }, [filteredTransactions, selectedAccountId, accounts]);
 
-  // Séries Mensais para o Fluxo de Caixa (ComposedChart)
+  // Séries Mensais para o Fluxo de Caixa (ComposedChart) sem overflow de mês
   const cashflowData: CashflowPoint[] = useMemo(() => {
     const monthBuckets: { [key: string]: { income: number; expenses: number } } = {};
 
-    // Inicializar os meses dentro do intervalo para manter continuidade
-    const cur = new Date(startDate);
-    while (cur <= endDate) {
-      const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`;
+    // Inicializar os meses dentro do intervalo com dia 1 UTC fixado
+    const cur = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1));
+    const endMonth = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1));
+
+    while (cur <= endMonth) {
+      const key = getUTCMonthKey(cur);
       monthBuckets[key] = { income: 0, expenses: 0 };
-      cur.setMonth(cur.getMonth() + 1);
+      cur.setUTCMonth(cur.getUTCMonth() + 1);
     }
 
     filteredTransactions.forEach((t) => {
-      const d = new Date(t.occurred_at);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const d = parseUTCDate(t.occurred_at);
+      const key = getUTCMonthKey(d);
       if (monthBuckets[key]) {
-        const val = Number(t.amount);
+        const val = parseSafeAmount(t.amount);
         if (t.type === "receita") monthBuckets[key].income += val;
         if (t.type === "despesa") monthBuckets[key].expenses += val;
       }
@@ -155,8 +199,8 @@ export function AnalyticsDashboard({
 
     return Object.entries(monthBuckets).map(([key, vals]) => {
       const [y, m] = key.split("-");
-      const monthDate = new Date(Number(y), Number(m) - 1, 1);
-      const label = monthDate.toLocaleDateString("pt-BR", { month: "short" });
+      const monthDate = new Date(Date.UTC(Number(y), Number(m) - 1, 1));
+      const label = monthDate.toLocaleDateString("pt-BR", { month: "short", timeZone: "UTC" });
       const capLabel = label.charAt(0).toUpperCase() + label.slice(1);
       return {
         month: key,
@@ -189,7 +233,7 @@ export function AnalyticsDashboard({
       .filter((t) => t.type === "despesa")
       .forEach((t) => {
         const catId = t.category_id || "sem-categoria";
-        map[catId] = (map[catId] || 0) + Number(t.amount);
+        map[catId] = (map[catId] || 0) + parseSafeAmount(t.amount);
       });
 
     const total = totals.expenses || 1;
@@ -211,7 +255,7 @@ export function AnalyticsDashboard({
   const topExpenses = useMemo(() => {
     return filteredTransactions
       .filter((t) => t.type === "despesa")
-      .sort((a, b) => Number(b.amount) - Number(a.amount))
+      .sort((a, b) => parseSafeAmount(b.amount) - parseSafeAmount(a.amount))
       .slice(0, 4);
   }, [filteredTransactions]);
 
@@ -224,12 +268,12 @@ export function AnalyticsDashboard({
 
     const headers = ["Data", "Descrição", "Tipo", "Categoria", "Conta", "Valor (R$)"];
     const rows = filteredTransactions.map((t) => [
-      new Date(t.occurred_at).toLocaleDateString("pt-BR"),
+      parseUTCDate(t.occurred_at).toLocaleDateString("pt-BR", { timeZone: "UTC" }),
       `"${(t.description || "Sem descrição").replace(/"/g, '""')}"`,
       t.type,
       `"${categoryMap[t.category_id || ""]?.name || "Sem categoria"}"`,
       `"${accountMap[t.account_id]?.name || "Conta"}"`,
-      Number(t.amount).toFixed(2).replace(".", ","),
+      parseSafeAmount(t.amount).toFixed(2).replace(".", ","),
     ]);
 
     const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
@@ -312,8 +356,8 @@ export function AnalyticsDashboard({
                   }
                 }}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${isActive
-                    ? "bg-blue-700 text-white shadow-sm"
-                    : "text-gray-600 hover:bg-white hover:text-gray-900"
+                  ? "bg-blue-700 text-white shadow-sm"
+                  : "text-gray-600 hover:bg-white hover:text-gray-900"
                   }`}
               >
                 {tab.label}
@@ -445,8 +489,12 @@ export function AnalyticsDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Coluna Esquerda: Fluxo de Caixa e Evolução Patrimonial */}
         <div className="lg:col-span-2 space-y-6">
-          <CashflowChart data={cashflowData} />
+          <CashflowChart
+            key={`cashflow-${selectedPeriod}-${selectedAccountId}-${filteredTransactions.length}`}
+            data={cashflowData}
+          />
           <NetWorthChart
+            key={`networth-${selectedPeriod}-${selectedAccountId}-${filteredTransactions.length}`}
             data={netWorthData}
             currentTotal={totals.accountsBalance}
             accumulatedSavings={totals.netSavings}
@@ -458,6 +506,7 @@ export function AnalyticsDashboard({
         <div className="space-y-6 flex flex-col">
           <div className="flex-1">
             <CategoryDonutChart
+              key={`donut-${selectedPeriod}-${selectedAccountId}-${filteredTransactions.length}`}
               data={categoryExpenses}
               totalExpenses={totals.expenses}
             />
@@ -495,12 +544,12 @@ export function AnalyticsDashboard({
                           </p>
                           <p className="text-[11px] text-gray-400 truncate">
                             {cat?.name || "Sem categoria"} •{" "}
-                            {new Date(exp.occurred_at).toLocaleDateString("pt-BR")}
+                            {parseUTCDate(exp.occurred_at).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                           </p>
                         </div>
                       </div>
                       <span className="text-xs font-bold text-gray-900 shrink-0 ml-2">
-                        {formatCurrency(Number(exp.amount))}
+                        {formatCurrency(parseSafeAmount(exp.amount))}
                       </span>
                     </div>
                   );
